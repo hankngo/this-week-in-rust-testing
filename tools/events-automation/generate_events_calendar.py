@@ -97,9 +97,8 @@ def get_events() -> list[Event]:
     """
     event_list = list()
     events = authenticate()
-    # count = 1
     for event in events:
-        # name, location, date, url, virtual, organizerName, maybeSpam
+        # Event(name, location, date, url, virtual, organizerName, organizerUrl, duplicate=False)
         name = event.get("summary", "No title")
         location = event.get("location", event["start"].get("timeZone", "No location"))
         date = datetime.datetime.fromisoformat(event["start"].get("dateTime", event["start"].get("date")))

@@ -6,14 +6,15 @@
 from typing import List
 from event import Event
 from test_events import get_test_events
-from generate_events_calendar import get_events
+from generate_events_calendar import get_events as get_calendar_events
+from generate_events_meetup import get_events as get_meetup_events
 
 from datetime import date, timedelta
 from country_code_to_continent import country_code_to_continent
 
 def main():
     # Get event_list from sources.
-    event_list = get_events()
+    event_list = get_meetup_events()
     
     # Format date and location data
     format_data(event_list)
@@ -49,8 +50,6 @@ def main():
 def format_data(event_list):
     # Formats date and location data into specified format.
     for event in event_list:
-        # TODO delete print line when done testing
-        print(event)
         event.format_date()
         event.format_location()
 

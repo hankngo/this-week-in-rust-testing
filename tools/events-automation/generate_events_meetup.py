@@ -5,6 +5,7 @@ import pandas as pd
 
 from jwt_auth import generate_signed_jwt
 from urllib.parse import urlsplit
+from geopy.geocoders import Nominatim
 from event import Event
 
 def authenticate():
@@ -27,9 +28,14 @@ def authenticate():
         print("Response:", response.text)
         return None, None
 
+# Initialize variables for querying and formatting data:
+ACCESS_TOKEN, REFRESH_TOKEN = authenticate()
+# initialize Nominatim API 
+GEOLOCATOR = Nominatim(user_agent="TWiR")
+
 def fetch_groups(endCursor=""):
     URL = "https://api.meetup.com/gql"
-    access_token, refresh_token = authenticate()
+    access_token, refresh_token = ACCESS_TOKEN, REFRESH_TOKEN
 
     if not access_token:
         print("Authentication failed, cannot proceed to fetch events.")
@@ -136,10 +142,9 @@ def get_known_rush_groups(fileName):
     return groups
 
 def get_20_events(groups) -> list[Event]:
-    # TODO: Make sure list of 20 events has all values for list of Event
     events = []
     URL = "https://api.meetup.com/gql"
-    access_token, refresh_token = authenticate()
+    access_token, refresh_token = ACCESS_TOKEN, REFRESH_TOKEN
 
     if not access_token:
         print("Authentication failed, cannot proceed to fetch events.")
@@ -197,31 +202,41 @@ def get_20_events(groups) -> list[Event]:
                     for edge in edges:
                         node = edge["node"]
                         if node:
-                            name = node["title"]
-                            lat, lng = 0, 0
-                            virtual = True
                             venue = node["venue"]
-                            # TODO: What if venue is None? would it consider as spam event?
+                            # TODO: Handle events don't have venue:
+                            # 1. Flagging the events and they will have to be check manually, 
+                            # 2. Putting them in separate list to check
+                            # (for now ignore those events) 
                             if venue:
-                                lat, lng = venue["lat"], venue["lng"] # set to location?
+                                name = node["title"]
+                                virtual = True
                                 if venue["venueType"] != "online":
                                     virtual = False
-                            location = f"{lat}, {lng}"
-                            date = node["dateTime"]
-                            url = node["eventUrl"]
-                            organizerName = group.get("name", urlName)
-                            organizerUrl = group["link"]
-                            # print(f"Event({name}, location={location}\ndate={date}, url={url}, virtual={virtual}\norganizerName={organizerName}, organizerUrl={organizerUrl}\n")
-                            events.append(Event(name, location, date, url, virtual, organizerName, organizerUrl))
+                                address = (GEOLOCATOR.reverse(str(venue["lat"]) +","+ str(venue["lng"]))).raw["address"]
+                                location = format_location(address)
+                                date = node["dateTime"]
+                                url = node["eventUrl"]
+                                organizerName = group.get("name", urlName)
+                                organizerUrl = group["link"]
+                                # print(f"Event({name}, location={location}\ndate={date}, url={url}, virtual={virtual}\norganizerName={organizerName}, organizerUrl={organizerUrl}\n")
+                                events.append(Event(name, location, date, url, virtual, organizerName, organizerUrl))
     return events
 
+def format_location(address):
+    if not address:
+        return "No location"
+    
+    # Components in the order for location
+    components = ['city', 'state', 'country']
+    
+    # Get available components
+    location = [address.get(component, "") for component in components]
+
+    return ', '.join(location) if location else "No location"
+
 def get_events() -> list[Event]:
-    # TODO: get list of events from Meetup and known Rush groups, and combine two list together
-    # return the event source
-    # groups = get_rush_groups()
     events_meetup_groups = get_20_events(get_rush_groups())
-    # groups = get_known_rush_groups("rust_meetup_groups.csv")
     events_known_groups = get_20_events(get_known_rush_groups("rust_meetup_groups.csv"))
     return events_meetup_groups + events_known_groups
 
-print(len(get_events()))
+# get_events()
